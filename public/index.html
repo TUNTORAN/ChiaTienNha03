@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏠 Chia Tiền Nhà</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div id="app">
+
+    <header class="app-header">
+        <div class="header-left">
+            <div class="logo">🏠 Chia Tiền Nhà</div>
+            <p class="header-sub">Quản lý chi tiêu gia đình</p>
+        </div>
+        <div class="header-right">
+            <select id="monthSelect" class="month-select"></select>
+        </div>
+    </header>
+
+    <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="expenses">📋 Hóa đơn</button>
+        <button class="tab-btn" data-tab="settlement">💰 Chia tiền</button>
+        <button class="tab-btn" data-tab="chart">📊 Biểu đồ</button>
+        <button class="tab-btn" data-tab="members">👥 Thành viên</button>
+    </nav>
+
+    <main class="main-content">
+
+        <!-- ① Hóa đơn -->
+        <div id="tab-expenses" class="tab-panel active">
+            <div class="panel-header">
+                <h2>Hóa đơn <span id="expenseMonthLabel"></span></h2>
+                <button class="btn-primary" id="addExpenseBtn">+ Thêm</button>
+            </div>
+
+            <div class="filter-bar">
+                <select id="filterPerson" class="filter-select">
+                    <option value="">Tất cả thành viên</option>
+                </select>
+            </div>
+
+            <div class="summary-bar" id="summaryBar"></div>
+            <div id="expenseList" class="expense-list"></div>
+        </div>
+
+        <!-- ② Chia tiền -->
+        <div id="tab-settlement" class="tab-panel">
+            <div class="panel-header">
+                <h2>Chia tiền <span id="settlementMonthLabel"></span></h2>
+            </div>
+            <div id="settlementContent"></div>
+        </div>
+
+        <!-- ③ Biểu đồ -->
+        <div id="tab-chart" class="tab-panel">
+            <div class="panel-header">
+                <h2>Biểu đồ <span id="chartMonthLabel"></span></h2>
+            </div>
+            <div class="chart-card"><canvas id="barChart"></canvas></div>
+            <div class="chart-card" style="margin-top:16px"><canvas id="lineChart"></canvas></div>
+        </div>
+
+        <!-- ④ Thành viên -->
+        <div id="tab-members" class="tab-panel">
+            <div class="panel-header">
+                <h2>Thành viên</h2>
+            </div>
+            <div class="add-member-form">
+                <input type="text" id="newMemberInput" class="input-field" placeholder="Tên thành viên...">
+                <button class="btn-primary" id="addMemberBtn">+ Thêm</button>
+            </div>
+            <div id="memberList" class="member-list"></div>
+        </div>
+
+    </main>
+</div>
+
+<!-- Modal thêm / sửa hóa đơn -->
+<div id="modal" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 id="modalTitle">Thêm hóa đơn</h3>
+            <button class="modal-close" id="modalClose">✕</button>
+        </div>
+        <form id="expenseForm" class="expense-form" autocomplete="off">
+            <input type="hidden" id="editId">
+
+            <div class="form-group">
+                <label>Người chi</label>
+                <select id="fPerson" class="input-field" required></select>
+            </div>
+            <div class="form-group">
+                <label>Số tiền (¥)</label>
+                <input type="number" id="fAmount" class="input-field" placeholder="1500" min="1" required>
+            </div>
+            <div class="form-group">
+                <label>Mô tả</label>
+                <input type="text" id="fDesc" class="input-field" placeholder="Mua rau, tiền điện..." required>
+            </div>
+            <div class="form-group">
+                <label>Ngày</label>
+                <input type="date" id="fDate" class="input-field" required>
+            </div>
+            <div class="form-group">
+                <label>Memo <span style="font-weight:400;color:#aab">(ghi chú thêm)</span></label>
+                <textarea id="fMemo" class="input-field" rows="2" placeholder="Ghi chú thêm..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Ảnh hóa đơn</label>
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="fileInput" accept="image/*" style="display:none">
+                    <div id="uploadPreview" class="upload-placeholder">
+                        <span>📷 Nhấn để tải ảnh</span>
+                    </div>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="cancelBtn">Hủy</button>
+                <button type="submit" class="btn-primary" id="saveBtn">Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" style="display:none">
+    <div id="lbOverlay" class="lb-overlay"></div>
+    <img id="lbImg" class="lb-img" src="" alt="Receipt">
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
