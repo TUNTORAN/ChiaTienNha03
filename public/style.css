@@ -241,6 +241,25 @@ textarea { resize: vertical; }
 .lb-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.9); z-index: 1000; cursor: pointer; }
 .lb-img { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 1001; max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 10px; cursor: pointer; }
 
+/* ── History ──────────────────────────────────────── */
+.history-item {
+    background: white; border-radius: var(--radius); padding: 12px 15px;
+    box-shadow: var(--shadow); margin-bottom: 8px;
+    display: flex; align-items: center; gap: 12px;
+}
+.history-icon { font-size: 1.1rem; flex-shrink: 0; }
+.history-body { flex: 1; min-width: 0; }
+.history-desc { font-weight: 600; font-size: .9rem; }
+.history-meta { font-size: .75rem; color: var(--muted); margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; }
+.history-empty { font-size: .85rem; color: var(--muted); padding: 4px 0; }
+.deleted-item { border-left: 3px solid var(--danger); }
+.btn-restore {
+    background: #eef1ff; color: var(--primary); border: none;
+    padding: 7px 12px; border-radius: 8px; cursor: pointer;
+    font-size: .82rem; font-weight: 700; flex-shrink: 0; transition: background .15s;
+}
+.btn-restore:hover { background: #dde3ff; }
+
 /* ── Responsive ───────────────────────────────────── */
 @media (max-width: 580px) {
     .tab-btn { font-size: .72rem; padding: 9px 3px; }

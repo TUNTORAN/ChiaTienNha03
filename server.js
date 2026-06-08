@@ -22,6 +22,14 @@ const AppDataSchema = new mongoose.Schema({
 });
 const AppData = mongoose.model('AppData', AppDataSchema);
 
+const AuditLogSchema = new mongoose.Schema({
+    action:          { type: String, enum: ['add', 'edit', 'delete', 'restore'] },
+    expenseId:       String,
+    expenseSnapshot: mongoose.Schema.Types.Mixed,
+    timestamp:       { type: Date, default: Date.now },
+});
+const AuditLog = mongoose.model('AuditLog', AuditLogSchema);
+
 async function getData() {
     let doc = await AppData.findOne();
     if (!doc) doc = await AppData.create({ members: [], expenses: [] });
@@ -59,7 +67,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ── API ───────────────────────────────────────────────────────────────────────
 app.get('/api/data', async (req, res) => {
     const doc = await getData();
-    res.json({ members: doc.members, expenses: doc.expenses });
+    res.json({ members: doc.members, expenses: doc.expenses.filter(e => !e.deleted) });
 });
 
 app.post('/api/expenses', async (req, res) => {
@@ -72,6 +80,7 @@ app.post('/api/expenses', async (req, res) => {
     doc.expenses.push(expense);
     doc.markModified('expenses');
     await doc.save();
+    await AuditLog.create({ action: 'add', expenseId: expense.id, expenseSnapshot: expense });
     res.json(expense);
 });
 
@@ -86,27 +95,50 @@ app.put('/api/expenses/:id', async (req, res) => {
     const doc = await getData();
     const idx = doc.expenses.findIndex(e => e.id === req.params.id);
     if (idx === -1) return res.status(404).json({ error: 'Not found' });
+    const before = { ...doc.expenses[idx] };
     doc.expenses.set(idx, { ...doc.expenses[idx], ...req.body });
     doc.markModified('expenses');
     await doc.save();
+    await AuditLog.create({ action: 'edit', expenseId: req.params.id, expenseSnapshot: { before, after: doc.expenses[idx] } });
     res.json(doc.expenses[idx]);
 });
 
+// Soft delete — đánh dấu deleted thay vì xóa thật
 app.delete('/api/expenses/:id', async (req, res) => {
     const doc = await getData();
-    const expense = doc.expenses.find(e => e.id === req.params.id);
-    if (expense?.image?.includes('cloudinary.com')) {
-        try {
-            const afterUpload = expense.image.split('/upload/')[1];
-            const withoutVersion = afterUpload.replace(/^v\d+\//, '');
-            const publicId = withoutVersion.replace(/\.[^/.]+$/, '');
-            await cloudinary.uploader.destroy(publicId);
-        } catch {}
-    }
-    doc.expenses = doc.expenses.filter(e => e.id !== req.params.id);
+    const idx = doc.expenses.findIndex(e => e.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'Not found' });
+    const expense = { ...doc.expenses[idx] };
+    doc.expenses.set(idx, { ...expense, deleted: true, deletedAt: new Date().toISOString() });
     doc.markModified('expenses');
     await doc.save();
+    await AuditLog.create({ action: 'delete', expenseId: req.params.id, expenseSnapshot: expense });
     res.json({ success: true });
+});
+
+// Khôi phục hóa đơn đã xóa
+app.put('/api/expenses/:id/restore', async (req, res) => {
+    const doc = await getData();
+    const idx = doc.expenses.findIndex(e => e.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'Not found' });
+    const exp = { ...doc.expenses[idx] };
+    delete exp.deleted;
+    delete exp.deletedAt;
+    doc.expenses.set(idx, exp);
+    doc.markModified('expenses');
+    await doc.save();
+    await AuditLog.create({ action: 'restore', expenseId: req.params.id, expenseSnapshot: exp });
+    res.json({ success: true });
+});
+
+app.get('/api/deleted-expenses', async (req, res) => {
+    const doc = await getData();
+    res.json(doc.expenses.filter(e => e.deleted));
+});
+
+app.get('/api/audit-log', async (req, res) => {
+    const logs = await AuditLog.find().sort({ timestamp: -1 }).limit(200);
+    res.json(logs);
 });
 
 app.post('/api/members', async (req, res) => {

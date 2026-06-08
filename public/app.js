@@ -37,6 +37,12 @@ function todayISO() {
     return new Date().toISOString().slice(0, 10);
 }
 
+function fmtDateTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
 function currentYM() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -343,6 +349,77 @@ function renderMembers() {
     };
 }
 
+// ── Render: history ───────────────────────────────────────────────────────────
+async function renderHistory() {
+    const el = document.getElementById('historyContent');
+    el.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px">Đang tải...</p>';
+
+    const [deleted, logs] = await Promise.all([
+        fetch('/api/deleted-expenses').then(r => r.json()),
+        fetch('/api/audit-log').then(r => r.json()),
+    ]);
+
+    const ICON  = { add: '✅', edit: '✏️', delete: '🗑️', restore: '↩️' };
+    const LABEL = { add: 'Thêm', edit: 'Sửa', delete: 'Xóa', restore: 'Khôi phục' };
+
+    const deletedHtml = deleted.length === 0
+        ? '<p class="history-empty">Không có hóa đơn nào trong thùng rác</p>'
+        : deleted.map(e => `
+            <div class="history-item deleted-item">
+                <div class="history-body">
+                    <div class="history-desc">${escape(e.description)}</div>
+                    <div class="history-meta">
+                        <span style="color:${color(e.person)};font-weight:700">${escape(e.person)}</span>
+                        <span>${fmt(e.amount)}</span>
+                        <span>📅 ${e.date}</span>
+                        <span style="color:var(--danger)">Xóa lúc ${fmtDateTime(e.deletedAt)}</span>
+                    </div>
+                </div>
+                <button class="btn-restore" data-restore="${e.id}">↩ Khôi phục</button>
+            </div>`).join('');
+
+    const logsHtml = logs.length === 0
+        ? '<p class="history-empty">Chưa có lịch sử</p>'
+        : logs.map(log => {
+            const snap = log.expenseSnapshot || {};
+            const isEdit = log.action === 'edit';
+            const desc   = escape(isEdit ? (snap.before?.description || '') : (snap.description || ''));
+            const person = isEdit ? snap.before?.person : snap.person;
+            const amount = isEdit ? snap.before?.amount : snap.amount;
+            return `
+                <div class="history-item">
+                    <span class="history-icon">${ICON[log.action] || '•'}</span>
+                    <div class="history-body">
+                        <div class="history-desc"><strong>${LABEL[log.action]}:</strong> ${desc}</div>
+                        <div class="history-meta">
+                            ${person ? `<span style="color:${color(person)};font-weight:700">${escape(person)}</span>` : ''}
+                            ${amount ? `<span>${fmt(amount)}</span>` : ''}
+                            <span>${fmtDateTime(log.timestamp)}</span>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+
+    el.innerHTML = `
+        <div class="settlement-section">
+            <div class="section-title">🗑️ Thùng rác (có thể khôi phục)</div>
+            ${deletedHtml}
+        </div>
+        <div class="settlement-section">
+            <div class="section-title">📋 Nhật ký thay đổi</div>
+            ${logsHtml}
+        </div>`;
+
+    el.querySelectorAll('[data-restore]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            await fetch(`/api/expenses/${btn.dataset.restore}/restore`, { method: 'PUT' });
+            await loadData();
+            renderAll();
+            renderHistory();
+        });
+    });
+}
+
 // ── renderAll ─────────────────────────────────────────────────────────────────
 function renderAll() {
     renderMonthSelect();
@@ -426,6 +503,7 @@ function setupEvents() {
             btn.classList.add('active');
             document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
             if (btn.dataset.tab === 'chart') renderCharts();
+            if (btn.dataset.tab === 'history') renderHistory();
         });
     });
 
