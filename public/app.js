@@ -1,12 +1,13 @@
 // ── State ────────────────────────────────────────────────────────────────────
 const state = {
-    members:      [],
-    expenses:     [],
-    currentMonth: '',
-    editingId:    null,
-    pendingImage: null,
-    barChart:     null,
-    lineChart:    null,
+    members:            [],
+    expenses:           [],
+    currentMonth:       '',
+    editingId:          null,
+    pendingImage:       null,
+    pendingImageBackup: null,
+    barChart:           null,
+    lineChart:          null,
 };
 
 const COLORS = [
@@ -138,7 +139,7 @@ function renderExpenses() {
                 ${e.memo ? `<div class="expense-memo">📝 ${escape(e.memo)}</div>` : ''}
             </div>
             <div class="expense-right">
-                ${e.image ? `<img class="receipt-thumb" src="${e.image}" data-src="${e.image}" alt="receipt">` : ''}
+                ${e.image ? `<img class="receipt-thumb" src="${e.image}" data-src="${e.image}" data-backup="${escape(e.imageBackup || '')}" alt="receipt" ${e.imageBackup ? `onerror="this.onerror=null;this.src='${escape(e.imageBackup)}'"` : ''}>` : ''}
                 <span class="expense-amount">${fmt(e.amount)}</span>
                 <div class="expense-actions">
                     <button class="btn-icon btn-edit" data-edit="${e.id}" title="Sửa">✏️</button>
@@ -153,7 +154,11 @@ function renderExpenses() {
         const imgSrc = ev.target.closest('[data-src]')?.dataset.src;
 
         if (editId) { openModal(editId); return; }
-        if (imgSrc) { showLightbox(imgSrc); return; }
+        if (imgSrc) {
+            const backup = ev.target.closest('[data-src]')?.dataset.backup || '';
+            showLightbox(imgSrc, backup);
+            return;
+        }
         if (delId && confirm('Xóa hóa đơn này?')) {
             await api('DELETE', `/api/expenses/${delId}`);
             await loadData();
@@ -433,8 +438,9 @@ function renderAll() {
 
 // ── Modal ──────────────────────────────────────────────────────────────────────
 function openModal(id = null) {
-    state.editingId  = id;
-    state.pendingImage = null;
+    state.editingId         = id;
+    state.pendingImage      = null;
+    state.pendingImageBackup = null;
 
     // Populate person select
     const fPerson = document.getElementById('fPerson');
@@ -455,7 +461,8 @@ function openModal(id = null) {
         document.getElementById('fDesc').value   = e.description;
         document.getElementById('fDate').value   = e.date;
         document.getElementById('fMemo').value   = e.memo || '';
-        state.pendingImage = e.image || null;
+        state.pendingImage       = e.image       || null;
+        state.pendingImageBackup = e.imageBackup || null;
         setUploadPreview(e.image);
     } else {
         document.getElementById('modalTitle').textContent = 'Thêm hóa đơn';
@@ -470,8 +477,9 @@ function openModal(id = null) {
 
 function closeModal() {
     document.getElementById('modal').style.display = 'none';
-    state.editingId = null;
-    state.pendingImage = null;
+    state.editingId          = null;
+    state.pendingImage       = null;
+    state.pendingImageBackup = null;
 }
 
 function setUploadPreview(url) {
@@ -482,8 +490,10 @@ function setUploadPreview(url) {
 }
 
 // ── Lightbox ───────────────────────────────────────────────────────────────────
-function showLightbox(src) {
-    document.getElementById('lbImg').src = src;
+function showLightbox(src, backup) {
+    const img = document.getElementById('lbImg');
+    img.src = src;
+    img.onerror = backup ? () => { img.onerror = null; img.src = backup; } : null;
     document.getElementById('lightbox').style.display = 'block';
 }
 
@@ -541,7 +551,8 @@ function setupEvents() {
         if (!file) return;
         try {
             const r = await uploadImage(file);
-            state.pendingImage = r.url;
+            state.pendingImage       = r.url;
+            state.pendingImageBackup = r.backup || null;
             setUploadPreview(r.url);
         } catch {
             alert('Tải ảnh thất bại');
@@ -557,7 +568,8 @@ function setupEvents() {
             description: document.getElementById('fDesc').value.trim(),
             date:        document.getElementById('fDate').value,
             memo:        document.getElementById('fMemo').value.trim(),
-            image:       state.pendingImage || null,
+            image:       state.pendingImage       || null,
+            imageBackup: state.pendingImageBackup || null,
         };
         if (state.editingId) {
             await api('PUT', `/api/expenses/${state.editingId}`, body);

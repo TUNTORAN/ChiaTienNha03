@@ -1,12 +1,18 @@
 require('dotenv').config();
 
-const express  = require('express');
-const multer   = require('multer');
+const express    = require('express');
+const multer     = require('multer');
 const { v4: uuidv4 } = require('uuid');
-const path     = require('path');
-const mongoose = require('mongoose');
+const path       = require('path');
+const fs         = require('fs');
+const mongoose   = require('mongoose');
 const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
+
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key:    process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -36,24 +42,20 @@ async function getData() {
     return doc;
 }
 
-// ── Cloudinary ────────────────────────────────────────────────────────────────
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key:    process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// ── Local image storage ───────────────────────────────────────────────────────
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR);
 
-const cloudStorage = new CloudinaryStorage({
-    cloudinary,
-    params: {
-        folder: 'chiatien-receipts',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'heic'],
-        transformation: [{ width: 1200, crop: 'limit', quality: 'auto' }],
+const diskStorage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, UPLOADS_DIR),
+    filename:    (req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+        cb(null, `${uuidv4()}${ext}`);
     },
 });
 
 const upload = multer({
-    storage: cloudStorage,
+    storage: diskStorage,
     limits: { fileSize: 10 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         if (file.mimetype.startsWith('image/')) cb(null, true);
@@ -63,6 +65,7 @@ const upload = multer({
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 // ── API ───────────────────────────────────────────────────────────────────────
 app.get('/api/data', async (req, res) => {
@@ -158,9 +161,23 @@ app.delete('/api/members/:name', async (req, res) => {
     res.json({ members: doc.members });
 });
 
-app.post('/api/upload', upload.single('image'), (req, res) => {
+app.post('/api/upload', upload.single('image'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    res.json({ url: req.file.path });
+
+    const localUrl = `/uploads/${req.file.filename}`;
+    let backupUrl  = null;
+
+    try {
+        const result = await cloudinary.uploader.upload(req.file.path, {
+            folder: 'chiatien-receipts',
+            transformation: [{ width: 1200, crop: 'limit', quality: 'auto' }],
+        });
+        backupUrl = result.secure_url;
+    } catch (err) {
+        console.warn('Cloudinary backup failed:', err.message);
+    }
+
+    res.json({ url: localUrl, backup: backupUrl });
 });
 
 app.listen(PORT, () => {
