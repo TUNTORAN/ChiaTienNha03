@@ -34,7 +34,10 @@
         <div id="tab-expenses" class="tab-panel active">
             <div class="panel-header">
                 <h2>Hóa đơn <span id="expenseMonthLabel"></span></h2>
-                <button class="btn-primary" id="addExpenseBtn">+ Thêm</button>
+                <div class="panel-actions">
+                    <button class="btn-secondary btn-sm" id="copyRecurringBtn" title="Sao chép chi phí định kỳ từ tháng trước">🔁 Định kỳ</button>
+                    <button class="btn-primary" id="addExpenseBtn">+ Thêm</button>
+                </div>
             </div>
 
             <div class="filter-bar">
@@ -116,6 +119,12 @@
             <div class="form-group">
                 <label>Memo <span style="font-weight:400;color:#aab">(ghi chú thêm)</span></label>
                 <textarea id="fMemo" class="input-field" rows="2" placeholder="Ghi chú thêm..."></textarea>
+            </div>
+            <div class="form-group form-group-check">
+                <label class="check-label">
+                    <input type="checkbox" id="fRecurring">
+                    <span>Lặp lại hàng tháng <span style="font-weight:400;color:#aab">(định kỳ)</span></span>
+                </label>
             </div>
             <div class="form-group">
                 <label>Ảnh hóa đơn</label>

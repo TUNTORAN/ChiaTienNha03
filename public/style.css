@@ -78,8 +78,29 @@ textarea { resize: vertical; }
     background: none; border: none; cursor: pointer;
     padding: 5px 8px; border-radius: 8px; font-size: .85rem; transition: background .15s;
 }
-.btn-edit:hover { background: #eef1ff; }
+.btn-edit:hover   { background: #eef1ff; }
 .btn-delete:hover { background: #fff0f1; }
+.btn-clone:hover  { background: #f0faf5; }
+.btn-sm { padding: 8px 12px; font-size: .8rem; }
+
+/* ── Panel actions ────────────────────────────────── */
+.panel-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+/* ── Recurring badge ──────────────────────────────── */
+.recurring-badge {
+    display: inline-block; font-size: .62rem; background: #eef1ff;
+    color: var(--primary); padding: 1px 5px; border-radius: 4px; vertical-align: middle;
+}
+
+/* ── Checkbox row ─────────────────────────────────── */
+.form-group.form-group-check { flex-direction: row; align-items: center; padding: 4px 0; }
+.check-label {
+    display: flex; align-items: center; gap: 9px; cursor: pointer;
+    font-size: .88rem; font-weight: 600; color: var(--text); user-select: none;
+}
+.check-label input[type="checkbox"] {
+    width: 17px; height: 17px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0;
+}
 
 /* ── Filter bar ───────────────────────────────────── */
 .filter-bar { margin-bottom: 10px; }
@@ -261,9 +282,56 @@ textarea { resize: vertical; }
 .btn-restore:hover { background: #dde3ff; }
 
 /* ── Responsive ───────────────────────────────────── */
-@media (max-width: 580px) {
-    .tab-btn { font-size: .72rem; padding: 9px 3px; }
+@media (max-width: 600px) {
+    #app { padding: 0 10px 60px; }
+
+    /* Header: stack vertically */
+    .app-header { flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px 0 10px; }
+    .header-right { width: 100%; }
+    .month-select { width: 100%; }
+
+    /* Tabs: smaller text */
+    .tab-nav { padding: 5px; gap: 3px; }
+    .tab-btn { font-size: .7rem; padding: 9px 2px; }
+
+    /* Panel header: allow wrap */
+    .panel-header { flex-wrap: wrap; gap: 8px; }
+    .panel-actions { gap: 6px; }
+
+    /* Expense items */
     .avatar { width: 36px; height: 36px; font-size: .82rem; }
-    .summary-bar { gap: 14px; padding: 12px 14px; }
+    .expense-item { padding: 10px 11px; gap: 9px; }
+    .expense-desc { font-size: .88rem; }
+    .expense-amount { font-size: .88rem; }
+    .receipt-thumb { width: 38px; height: 38px; }
+    .expense-right { gap: 6px; }
+
+    /* Summary */
+    .summary-bar { gap: 12px; padding: 12px 14px; }
+
+    /* Modal: bottom sheet */
+    .modal-overlay { padding: 0; align-items: flex-end; }
+    .modal-box { border-radius: 18px 18px 0 0; max-height: 95vh; max-width: 100%; }
+
+    /* Settlement */
     .balance-paid { display: none; }
+    .balance-name { width: 60px; font-size: .82rem; }
+    .balance-diff { width: 76px; font-size: .76rem; }
+    .txn-item { flex-wrap: wrap; padding: 10px 12px; }
+    .txn-amount { margin-left: auto; }
+
+    /* Members */
+    .add-member-form { flex-direction: column; }
+    .member-stat { display: none; }
+}
+
+@media (max-width: 400px) {
+    .tab-nav { gap: 2px; padding: 4px; }
+    .tab-btn { font-size: .62rem; padding: 8px 1px; }
+    .btn-icon { padding: 4px 5px; font-size: .8rem; }
+    .expense-right { gap: 4px; }
+    .expense-actions { gap: 0; }
+    .panel-actions { flex-wrap: wrap; justify-content: flex-end; width: 100%; }
+    .sum-label { font-size: .68rem; }
+    .sum-value { font-size: .88rem; }
 }

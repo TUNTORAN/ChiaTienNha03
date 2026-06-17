@@ -131,7 +131,7 @@ function renderExpenses() {
         <div class="expense-item">
             <div class="avatar" style="background:${color(e.person)}">${initial(e.person)}</div>
             <div class="expense-body">
-                <div class="expense-desc">${escape(e.description)}</div>
+                <div class="expense-desc">${e.recurring ? '<span class="recurring-badge">🔁</span> ' : ''}${escape(e.description)}</div>
                 <div class="expense-meta">
                     <span style="color:${color(e.person)};font-weight:700">${escape(e.person)}</span>
                     <span>📅 ${e.date}</span>
@@ -142,18 +142,25 @@ function renderExpenses() {
                 ${e.image ? `<img class="receipt-thumb" src="${e.image}" data-src="${e.image}" data-backup="${escape(e.imageBackup || '')}" alt="receipt" ${e.imageBackup ? `onerror="this.onerror=null;this.src='${escape(e.imageBackup)}'"` : ''}>` : ''}
                 <span class="expense-amount">${fmt(e.amount)}</span>
                 <div class="expense-actions">
-                    <button class="btn-icon btn-edit" data-edit="${e.id}" title="Sửa">✏️</button>
+                    <button class="btn-icon btn-clone" data-clone="${e.id}" title="Nhân bản">📋</button>
+                    <button class="btn-icon btn-edit"  data-edit="${e.id}"  title="Sửa">✏️</button>
                     <button class="btn-icon btn-delete" data-del="${e.id}" title="Xóa">🗑️</button>
                 </div>
             </div>
         </div>`).join('');
 
     el.onclick = async ev => {
-        const editId = ev.target.closest('[data-edit]')?.dataset.edit;
-        const delId  = ev.target.closest('[data-del]')?.dataset.del;
-        const imgSrc = ev.target.closest('[data-src]')?.dataset.src;
+        const editId  = ev.target.closest('[data-edit]')?.dataset.edit;
+        const delId   = ev.target.closest('[data-del]')?.dataset.del;
+        const imgSrc  = ev.target.closest('[data-src]')?.dataset.src;
+        const cloneId = ev.target.closest('[data-clone]')?.dataset.clone;
 
-        if (editId) { openModal(editId); return; }
+        if (editId)  { openModal(editId); return; }
+        if (cloneId) {
+            const src = state.expenses.find(x => x.id === cloneId);
+            if (src) openModal(null, src);
+            return;
+        }
         if (imgSrc) {
             const backup = ev.target.closest('[data-src]')?.dataset.backup || '';
             showLightbox(imgSrc, backup);
@@ -437,37 +444,53 @@ function renderAll() {
 }
 
 // ── Modal ──────────────────────────────────────────────────────────────────────
-function openModal(id = null) {
-    state.editingId         = id;
-    state.pendingImage      = null;
+function openModal(id = null, prefillData = null) {
+    state.editingId          = id;
+    state.pendingImage       = null;
     state.pendingImageBackup = null;
 
-    // Populate person select
     const fPerson = document.getElementById('fPerson');
     fPerson.innerHTML = state.members.map(m => `<option value="${m}">${m}</option>`).join('');
+
+    function fillPerson(name) {
+        if (name && !state.members.includes(name)) {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = `${name} (đã xóa)`;
+            fPerson.insertBefore(opt, fPerson.firstChild);
+        }
+        fPerson.value = name;
+    }
 
     if (id) {
         const e = state.expenses.find(x => x.id === id);
         if (!e) return;
         document.getElementById('modalTitle').textContent = 'Sửa hóa đơn';
-        if (e.person && !state.members.includes(e.person)) {
-            const opt = document.createElement('option');
-            opt.value = e.person;
-            opt.textContent = `${e.person} (đã xóa)`;
-            fPerson.insertBefore(opt, fPerson.firstChild);
-        }
-        fPerson.value = e.person;
-        document.getElementById('fAmount').value = e.amount;
-        document.getElementById('fDesc').value   = e.description;
-        document.getElementById('fDate').value   = e.date;
-        document.getElementById('fMemo').value   = e.memo || '';
+        fillPerson(e.person);
+        document.getElementById('fAmount').value    = e.amount;
+        document.getElementById('fDesc').value      = e.description;
+        document.getElementById('fDate').value      = e.date;
+        document.getElementById('fMemo').value      = e.memo || '';
+        document.getElementById('fRecurring').checked = !!e.recurring;
         state.pendingImage       = e.image       || null;
         state.pendingImageBackup = e.imageBackup || null;
         setUploadPreview(e.image);
+    } else if (prefillData) {
+        document.getElementById('modalTitle').textContent = 'Nhân bản hóa đơn';
+        fillPerson(prefillData.person);
+        document.getElementById('fAmount').value    = prefillData.amount;
+        document.getElementById('fDesc').value      = prefillData.description;
+        document.getElementById('fDate').value      = todayISO();
+        document.getElementById('fMemo').value      = prefillData.memo || '';
+        document.getElementById('fRecurring').checked = !!prefillData.recurring;
+        state.pendingImage       = prefillData.image       || null;
+        state.pendingImageBackup = prefillData.imageBackup || null;
+        setUploadPreview(prefillData.image);
     } else {
         document.getElementById('modalTitle').textContent = 'Thêm hóa đơn';
         document.getElementById('expenseForm').reset();
         document.getElementById('fDate').value = todayISO();
+        document.getElementById('fRecurring').checked = false;
         setUploadPreview(null);
     }
 
@@ -526,6 +549,9 @@ function setupEvents() {
     // Filter
     document.getElementById('filterPerson').addEventListener('change', () => renderExpenses());
 
+    // Copy recurring expenses
+    document.getElementById('copyRecurringBtn').addEventListener('click', copyRecurringExpenses);
+
     // Add expense button
     document.getElementById('addExpenseBtn').addEventListener('click', () => {
         if (state.members.length === 0) {
@@ -570,6 +596,7 @@ function setupEvents() {
             memo:        document.getElementById('fMemo').value.trim(),
             image:       state.pendingImage       || null,
             imageBackup: state.pendingImageBackup || null,
+            recurring:   document.getElementById('fRecurring').checked || false,
         };
         if (state.editingId) {
             await api('PUT', `/api/expenses/${state.editingId}`, body);
@@ -604,6 +631,45 @@ function setupEvents() {
     document.getElementById('lbImg').addEventListener('click', () => {
         document.getElementById('lightbox').style.display = 'none';
     });
+}
+
+// ── Copy recurring expenses ───────────────────────────────────────────────────
+async function copyRecurringExpenses() {
+    const [y, m] = state.currentMonth.split('-').map(Number);
+    const prevDate  = new Date(y, m - 2, 1);
+    const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+
+    const prevRecurring = state.expenses.filter(e => e.date?.startsWith(prevMonth) && e.recurring);
+    if (prevRecurring.length === 0) {
+        alert('Không có chi phí định kỳ nào trong tháng trước.');
+        return;
+    }
+
+    const current = monthExpenses();
+    const toAdd = prevRecurring.filter(prev =>
+        !current.some(c => c.recurring && c.description === prev.description && c.person === prev.person)
+    );
+
+    if (toAdd.length === 0) {
+        alert('Tất cả chi phí định kỳ đã được sao chép rồi.');
+        return;
+    }
+
+    const list = toAdd.map(e => `• ${e.description} (${e.person}) — ${fmt(e.amount)}`).join('\n');
+    if (!confirm(`Sao chép ${toAdd.length} chi phí định kỳ sang tháng này?\n\n${list}`)) return;
+
+    const firstDay = `${state.currentMonth}-01`;
+    for (const e of toAdd) {
+        await api('POST', '/api/expenses', {
+            person: e.person, amount: e.amount, description: e.description,
+            date: firstDay, memo: e.memo || '',
+            image: e.image || null, imageBackup: e.imageBackup || null,
+            recurring: true,
+        });
+    }
+
+    await loadData();
+    renderAll();
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
